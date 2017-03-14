@@ -873,9 +873,9 @@ public class ActionHandler {
                         && !res.activityInfo.packageName.equals("android")) {
                     defaultHomePackage = res.activityInfo.packageName;
                 }
-                IActivityManager am = ActivityManagerNative.getDefault();
+                IActivityManager iam = ActivityManagerNative.getDefault();
                 String pkgName;
-                List<RunningAppProcessInfo> apps = am.getRunningAppProcesses();
+                List<RunningAppProcessInfo> apps = iam.getRunningAppProcesses();
                 for (RunningAppProcessInfo appInfo : apps) {
                     int uid = appInfo.uid;
                     // Make sure it's a foreground user application (not system,
@@ -905,8 +905,27 @@ public class ActionHandler {
                                         // cheat just a little, highly unlikely event
                                         pkgName = "App";
                                     }
-                                    am.forceStopPackage(pkg,
+                                    iam.forceStopPackage(pkg,
                                             UserHandle.USER_CURRENT);
+
+                                    final ActivityManager am = (ActivityManager)
+                                            context.getSystemService(Context.ACTIVITY_SERVICE);
+                                    final List<ActivityManager.RecentTaskInfo> recentTasks =
+                                            am.getRecentTasksForUser(ActivityManager.getMaxRecentTasksStatic(),
+                                            ActivityManager.RECENT_IGNORE_HOME_STACK_TASKS
+                                                    | ActivityManager.RECENT_INGORE_PINNED_STACK_TASKS
+                                                    | ActivityManager.RECENT_IGNORE_UNAVAILABLE
+                                                    | ActivityManager.RECENT_INCLUDE_PROFILES,
+                                                    UserHandle.CURRENT.getIdentifier());
+                                    final int size = recentTasks.size();
+                                    for (int i = 0; i < size; i++) {
+                                        ActivityManager.RecentTaskInfo recentInfo = recentTasks.get(i);
+                                        if (recentInfo.baseIntent.getComponent().getPackageName().equals(pkg)) {
+                                            int taskid = recentInfo.persistentId;
+                                            am.removeTask(taskid);
+                                        }
+                                    }
+
                                     Resources systemUIRes = DUActionUtils.getResourcesForPackage(context, DUActionUtils.PACKAGE_SYSTEMUI);
                                     int ident = systemUIRes.getIdentifier("app_killed_message", DUActionUtils.STRING, DUActionUtils.PACKAGE_SYSTEMUI);
                                     String toastMsg = systemUIRes.getString(ident, pkgName);
